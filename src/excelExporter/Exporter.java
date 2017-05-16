@@ -120,126 +120,8 @@ public class Exporter {
 		}
 		
 	}
-    private static final String[] titles = {
-            "Person",	"ID", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
-            "Total\nHrs", "Overtime\nHrs", "Regular\nHrs"
-    };
 
-    private static Object[][] sample_data = {
-            {"Yegor Kozlov", "YK", 5.0, 8.0, 10.0, 5.0, 5.0, 7.0, 6.0},
-            {"Gisella Bronzetti", "GB", 4.0, 3.0, 1.0, 3.5, null, null, 4.0},
-    };
-	public static void test() throws IOException
-	{
-		Workbook wb;
-		wb = new XSSFWorkbook();
-		Map<String, CellStyle> styles = createStyles(wb);
-		Sheet sheet = wb.createSheet("Timesheet");
-        PrintSetup printSetup = sheet.getPrintSetup();
-        printSetup.setLandscape(true);
-        sheet.setFitToPage(true);
-        sheet.setHorizontallyCenter(true);
 
-        //title row
-        Row titleRow = sheet.createRow(0);
-        titleRow.setHeightInPoints(45);
-        Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("Weekly Timesheet");
-        titleCell.setCellStyle(styles.get("title"));
-        sheet.addMergedRegion(CellRangeAddress.valueOf("$A$1:$L$1"));
-
-        //header row
-        Row headerRow = sheet.createRow(1);
-        headerRow.setHeightInPoints(40);
-        Cell headerCell;
-        for (int i = 0; i < titles.length; i++) {
-            headerCell = headerRow.createCell(i);
-            headerCell.setCellValue(titles[i]);
-            headerCell.setCellStyle(styles.get("header"));
-        }
-
-        int rownum = 2;
-        for (int i = 0; i < 10; i++) {
-            Row row = sheet.createRow(rownum++);
-            for (int j = 0; j < titles.length; j++) {
-                Cell cell = row.createCell(j);
-                if(j == 9){
-                    //the 10th cell contains sum over week days, e.g. SUM(C3:I3)
-                    String ref = "C" +rownum+ ":I" + rownum;
-                    cell.setCellFormula("SUM("+ref+")");
-                    cell.setCellStyle(styles.get("formula"));
-                } else if (j == 11){
-                    cell.setCellFormula("J" +rownum+ "-K" + rownum);
-                    cell.setCellStyle(styles.get("formula"));
-                } else {
-                    cell.setCellStyle(styles.get("cell"));
-                }
-            }
-        }
-
-        //row with totals below
-        Row sumRow = sheet.createRow(rownum++);
-        sumRow.setHeightInPoints(35);
-        Cell cell;
-        cell = sumRow.createCell(0);
-        cell.setCellStyle(styles.get("formula"));
-        cell = sumRow.createCell(1);
-        cell.setCellValue("Total Hrs:");
-        cell.setCellStyle(styles.get("formula"));
-
-        for (int j = 2; j < 12; j++) {
-            cell = sumRow.createCell(j);
-            String ref = (char)('A' + j) + "3:" + (char)('A' + j) + "12";
-            cell.setCellFormula("SUM(" + ref + ")");
-            if(j >= 9) cell.setCellStyle(styles.get("formula_2"));
-            else cell.setCellStyle(styles.get("formula"));
-        }
-        rownum++;
-        sumRow = sheet.createRow(rownum++);
-        sumRow.setHeightInPoints(25);
-        cell = sumRow.createCell(0);
-        cell.setCellValue("Total Regular Hours");
-        cell.setCellStyle(styles.get("formula"));
-        cell = sumRow.createCell(1);
-        cell.setCellFormula("L13");
-        cell.setCellStyle(styles.get("formula_2"));
-        sumRow = sheet.createRow(rownum++);
-        sumRow.setHeightInPoints(25);
-        cell = sumRow.createCell(0);
-        cell.setCellValue("Total Overtime Hours");
-        cell.setCellStyle(styles.get("formula"));
-        cell = sumRow.createCell(1);
-        cell.setCellFormula("K13");
-        cell.setCellStyle(styles.get("formula_2"));
-
-        //set sample data
-        for (int i = 0; i < sample_data.length; i++) {
-            Row row = sheet.getRow(2 + i);
-            for (int j = 0; j < sample_data[i].length; j++) {
-                if(sample_data[i][j] == null) continue;
-
-                if(sample_data[i][j] instanceof String) {
-                    row.getCell(j).setCellValue((String)sample_data[i][j]);
-                } else {
-                    row.getCell(j).setCellValue((Double)sample_data[i][j]);
-                }
-            }
-        }
-
-        //finally set column widths, the width is measured in units of 1/256th of a character width
-        sheet.setColumnWidth(0, 30*256); //30 characters wide
-        for (int i = 2; i < 9; i++) {
-            sheet.setColumnWidth(i, 6*256);  //6 characters wide
-        }
-        sheet.setColumnWidth(10, 10*256); //10 characters wide
-
-        // Write the output to a file
-        String file = "timesheet.xls";
-        if(wb instanceof XSSFWorkbook) file += "x";
-        FileOutputStream out = new FileOutputStream(file);
-        wb.write(out);
-        out.close();
-	}
 	private static Map<String, CellStyle> createStyles(Workbook wb){
         Map<String, CellStyle> styles = new HashMap<String, CellStyle>();
         CellStyle style;
@@ -262,6 +144,7 @@ public class Exporter {
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setFont(monthFont);
         style.setWrapText(true);
+        
         styles.put("header", style);
 
         style = wb.createCellStyle();
@@ -318,28 +201,42 @@ public class Exporter {
 	 * Internal method used do write to CSV file
 	 * <p>
 	 * This method always to run write to CSV file
-	 * @throws IOException if program cna't create directory for export or if program have problem with csv file
+	 * @throws Exception 
 	 */
 	
-	private void exportXLSX() throws IOException
+	private void exportXLSX() throws Exception
 	{
 		
-		Workbook wb;
-		wb = new XSSFWorkbook();
-		Map<String, CellStyle> styles = createStyles(wb);
+		WorkbookForThreadList wb=new WorkbookForThreadList();
+		Map<String, CellStyle> styles=createStyles(wb.getFirst().workbook);
+		for (WorkbookForThread w:wb)
+		{
+			 styles = createStyles(w.workbook);
+		}
+		
 		LinkedList<MonitoredVarWithExport> list= MonitoredVarWithExport.ListOfMonitored;
+		
 		for (MonitoredVarWithExport ex : list) 
 		{
-
-			Sheet sheet = wb.createSheet(ex.getName());
+			int rownum=0;
+			Sheet sheet = wb.findWorkbookByThread(ex.getAppThread().getId()).workbook.createSheet(ex.getName());
+			
+			
+			
 			// Ustawienia strony druku
 	        PrintSetup printSetup = sheet.getPrintSetup();
 	        printSetup.setLandscape(true);
 	        
 	        sheet.setHorizontallyCenter(true);
-
+	        //Title
+	        Row titleRow = sheet.createRow(rownum++);
+	        titleRow.setHeightInPoints(45);
+	        Cell titleCell = titleRow.createCell(0);
+	        titleCell.setCellValue("Row data");
+	        titleCell.setCellStyle(styles.get("title"));
+	        sheet.addMergedRegion(CellRangeAddress.valueOf("$A$1:$B$1"));
 	        //hedders
-	        Row headerRow = sheet.createRow(0);
+	        Row headerRow = sheet.createRow(rownum++);
 	        headerRow.setHeightInPoints(25);
 	        Cell headerCell;
 	        
@@ -350,8 +247,11 @@ public class Exporter {
 	            headerCell = headerRow.createCell(1);
 	            headerCell.setCellStyle(styles.get("header"));
 	            headerCell.setCellValue("Value");
+	            
+	            
+	            
 
-	        int rownum=1;
+	        
 	        ChangesList changes=ex.getChanges();
 	        for(int i=0; i<changes.size();i++)
 	        {
@@ -371,63 +271,80 @@ public class Exporter {
 	        	
 	        	
 	        }
-			
+	        //add statistic
+	        int created=CreateStatistic(sheet,styles);
+	      //cell sizes set
+	        //For statistic
+	        for(int indexx=0;indexx<created;indexx++)
+	        {
+	        	sheet.setColumnWidth(3+indexx,4500);
+	        }
+	        
+	        
+	        
 		}
-		String file = "elo.xlsx";
-		FileOutputStream out = new FileOutputStream(file);
-		wb.write(out);
-		out.close();
-		wb.close();
-	}
-	private void exportXLSXold() throws IOException
-	{
-		LinkedList<MonitoredVarWithExport> list= MonitoredVarWithExport.ListOfMonitored;
-		BufferedWriter writer = null;
-		boolean isMoreThreads=createDirForThread();
+		for (WorkbookForThread w:wb)
+		{
+			String file = directory+"thread"+w.thread+".xlsx";
+			FileOutputStream out = new FileOutputStream(file);
+			w.workbook.write(out);
+			out.close();
+			w.workbook.close();
+		}
 
-		for (MonitoredVarWithExport ex : list) 
+	}
+	private int CreateStatistic(Sheet sheet,Map<String, CellStyle> styles)
+	{
+		int place=3;
+		int Created=0;
+		Row headerRowt;
+		Row Row;
+		int LastRow=sheet.getLastRowNum();
+		LinkedList<Formulas> formulas =new LinkedList<Formulas>();
+		formulas.add(new Formulas("AVERAGE(B3:B"+(LastRow+1)+")", "Arithmetic mean"));
+		formulas.add(new Formulas("HARMEAN(B3:B"+(LastRow+1)+")", "Harmonic mean"));
+		formulas.add(new Formulas("max(B3:B"+(LastRow+1)+")-min(B3:B"+(LastRow+1)+")", "Value Range"));
+		formulas.add(new Formulas("VAR(B3:B"+(LastRow+1)+")", "Variance"));
+		formulas.add(new Formulas("STDEVP(B3:B"+(LastRow+1)+")", "Standard deviation"));
+		formulas.add(new Formulas("min(B3:B"+(LastRow+1)+")", "Minimal value"));
+		formulas.add(new Formulas("max(B3:B"+(LastRow+1)+")", "Maximal value"));
+		formulas.add(new Formulas("COUNT(B3:B"+(LastRow+1)+")", "Number of samples"));
+		//formulas.add(new Formulas("CONFIDENCE(B3:B"+(LastRow+1)+")", "Estimated value"));
+		
+		
+		
+		headerRowt= sheet.getRow(1);
+		Row= sheet.getRow(2);
+		for(Formulas formula:formulas)
 		{
 			
-//			try 
-//			{
-
-				
-				List<Change> changes =CastChangesListToList(ex.getChanges());
-				for(Change i : changes)
-				{
-					System.out.println("("+i.getTime()+":"+i.getValue()+")");
-				}
-				//throw new IOException();
-				InputStream is = Exporter.class.getResourceAsStream("Q:\\home\\OneDrive\\Magyster\\msk\\DisSimLab2017\\resources\\excelExporter\\export_template.xls");
-				OutputStream os = new FileOutputStream("C:\\temp\\wyjscie.xls");
-//				OutputStream os = new FileOutputStream(directory+"wyjscie.xls");
-				Context context = new Context();
-				context.putVar("changes", changes);
-				
-				JxlsHelper jxlsHelper = JxlsHelper.getInstance();
-				jxlsHelper.setUseFastFormulaProcessor(false);
-				System.out.println("byc");
-				jxlsHelper.processTemplate(is, os, context);
-			//	JxlsHelper.getInstance().processTemplateAtCell(is, os, context, "Result!A1");
-//			}
-//			catch (IOException e) {
-//			
-//			throw e;
-//		}
-//		finally 
-//		{
-//            try 
-//            	{
-//
-//                
-//            	}
-//            catch (Exception e) 
-//            	{
-//            	}
-//		}
+	        Cell cell = headerRowt.createCell(place);
+	        
+	        cell.setCellStyle(styles.get("header"));
+	        cell.setCellValue(formula.headerName);
+	        
+	        
+	        cell = Row.createCell(place);
+	        cell.setCellFormula(formula.formula);
+	        cell.setCellStyle(styles.get("cell"));
+	        
+	        place++;
+	        Created++;
 		}
 		
+        return Created;
+        
 	}
+	 private class Formulas
+	 {
+		 Formulas(String formula, String headerName)
+		 {
+			 this.formula=formula;
+			 this.headerName=headerName;
+		 }
+		 String formula;
+		 String headerName;
+	 }
 	/**
 	 * Exports monitored values to CSV file using java swing (simple user interface)
 	 * <p>
@@ -449,38 +366,26 @@ public class Exporter {
 		catch(IOException e)
 		{
 			throw e;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
-	private static ExcelDataModel createDataModel(ChangesList Clist)
+	private LinkedList<Long> getThreads()
 	{
-		ExcelDataModel ret= new ExcelDataModel("Time;Value");
-		for(int i=0; i<Clist.size();i++)
-		{
-			String time= ""+
-			Clist.get(i).getTime();
-			String value=""+
-			Clist.get(i).getValue();
-			String[] s= {time,value};
-			try {
-				ret.AddRow(s);
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
+LinkedList<Long> treads= new LinkedList<Long>();
 		
-		return ret;
-	}
-	//#old
-	private static List<Change> CastChangesListToList(ChangesList Clist)
-	{
-		List<Change> list = new LinkedList<Change>();
-		for(int i=0; i<Clist.size();i++)
+		for (MonitoredVarWithExport ex : MonitoredVarWithExport.ListOfMonitored)
 		{
-			list.add(Clist.get(i));
+			if(!treads.contains(ex.getAppThread().getId())) 
+				{
+				treads.addFirst(ex.getAppThread().getId());
+					
+				}
 		}
-		return list;
+		return treads;
 	}
+
 	/**
 	 * Creates If needed directory for simulations threads.
 	 * <p>
